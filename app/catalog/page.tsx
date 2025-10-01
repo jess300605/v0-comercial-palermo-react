@@ -1,66 +1,73 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { Button } from "@/components/ui/button"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import { Plus, Edit, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { api } from "@/lib/api"
 
-const products = [
-  {
-    id: 1,
-    name: "Sofá",
-    image: "/orange-sofa-with-pillows.jpg",
-  },
-  {
-    id: 2,
-    name: "Mesa",
-    image: "/wooden-dining-table.png",
-  },
-  {
-    id: 3,
-    name: "Cómoda",
-    image: "/wooden-chest-of-drawers.jpg",
-  },
-  {
-    id: 4,
-    name: "Lámpara",
-    image: "/yellow-table-lamp.jpg",
-  },
-  {
-    id: 5,
-    name: "Cama",
-    image: "/single-bed-with-red-blanket.jpg",
-  },
-]
-
-const additionalProducts = [
-  {
-    id: 6,
-    name: "Silla de Oficina",
-    image: "/modern-office-chair.png",
-  },
-  {
-    id: 7,
-    name: "Estantería",
-    image: "/wooden-bookshelf.png",
-  },
-  {
-    id: 8,
-    name: "Mesa de Centro",
-    image: "/modern-living-room-coffee-table.png",
-  },
-  {
-    id: 9,
-    name: "Armario",
-    image: "/wooden-wardrobe.png",
-  },
-  {
-    id: 10,
-    name: "Escritorio",
-    image: "/modern-desk.png",
-  },
-]
+interface Product {
+  id: number
+  name: string
+  description?: string
+  code?: string
+  price?: number
+  sale_price?: number
+  ideal_stock?: number
+  image?: string
+}
 
 export default function CatalogPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    loadProducts()
+  }, [])
+
+  const loadProducts = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await api.getProducts()
+
+      if (response.error) {
+        setError(response.error)
+        return
+      }
+
+      if (response.data) {
+        setProducts(response.data)
+      }
+    } catch (err) {
+      setError("Error al cargar los productos")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteProduct = async (id: number) => {
+    if (!confirm("¿Está seguro de eliminar este producto?")) return
+
+    try {
+      const response = await api.deleteProduct(id)
+
+      if (response.error) {
+        alert("Error al eliminar el producto: " + response.error)
+        return
+      }
+
+      // Recargar productos después de eliminar
+      loadProducts()
+    } catch (err) {
+      alert("Error al eliminar el producto")
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header currentPage="catálogo de productos" />
@@ -76,62 +83,61 @@ export default function CatalogPage() {
                   Agregar Producto
                 </Button>
               </Link>
-              <Button className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg flex items-center gap-2">
-                <Trash2 className="w-5 h-5" />
-                Eliminar Producto
-              </Button>
             </div>
           </div>
 
-          {/* Products Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-lg hover:border-green-500 hover:shadow-lg transition-all duration-200 group"
-              >
-                <div className="aspect-square mb-4 flex items-center justify-center relative">
-                  <img
-                    src={product.image || "/placeholder.svg"}
-                    alt={product.name}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-full">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <h3 className="text-center text-lg font-semibold text-gray-800">{product.name}</h3>
-              </div>
-            ))}
-          </div>
+          {loading && (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-12 h-12 animate-spin text-green-600" />
+            </div>
+          )}
 
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Más Productos</h2>
+          {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+
+          {/* Products Grid */}
+          {!loading && !error && (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-              {additionalProducts.map((product) => (
+              {products.map((product) => (
                 <div
                   key={product.id}
                   className="bg-white border-2 border-dashed border-gray-300 p-6 rounded-lg hover:border-green-500 hover:shadow-lg transition-all duration-200 group"
                 >
                   <div className="aspect-square mb-4 flex items-center justify-center relative">
                     <img
-                      src={product.image || "/placeholder.svg"}
+                      src={product.image || "/placeholder.svg?height=200&width=200"}
                       alt={product.name}
                       className="max-w-full max-h-full object-contain"
                     />
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-full">
-                        <Edit className="w-4 h-4" />
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                      <Link href={`/products/edit/${product.id}`}>
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-full">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        onClick={() => handleDeleteProduct(product.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-full"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
                   <h3 className="text-center text-lg font-semibold text-gray-800">{product.name}</h3>
+                  {product.price && <p className="text-center text-green-600 font-bold mt-2">${product.price}</p>}
                 </div>
               ))}
             </div>
-          </div>
+          )}
+
+          {!loading && !error && products.length === 0 && (
+            <div className="text-center py-20 text-gray-500">
+              <p className="text-xl">No hay productos disponibles</p>
+              <Link href="/products/new">
+                <Button className="mt-4 bg-green-700 hover:bg-green-800 text-white">Agregar primer producto</Button>
+              </Link>
+            </div>
+          )}
         </div>
       </main>
 

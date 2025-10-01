@@ -1,16 +1,19 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useParams } from "next/navigation"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
-import { Plus } from "lucide-react"
+import { Plus, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api"
 
-export default function NewProductPage() {
+export default function EditProductPage() {
   const router = useRouter()
+  const params = useParams()
+  const productId = params.id as string
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -20,8 +23,40 @@ export default function NewProductPage() {
     ideal_stock: "",
     image: "",
   })
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    loadProduct()
+  }, [productId])
+
+  const loadProduct = async () => {
+    try {
+      const response = await api.getProduct(Number.parseInt(productId))
+
+      if (response.error) {
+        setError(response.error)
+        return
+      }
+
+      if (response.data) {
+        setFormData({
+          name: response.data.name || "",
+          description: response.data.description || "",
+          code: response.data.code || "",
+          price: response.data.price?.toString() || "",
+          sale_price: response.data.sale_price?.toString() || "",
+          ideal_stock: response.data.ideal_stock?.toString() || "",
+          image: response.data.image || "",
+        })
+      }
+    } catch (err) {
+      setError("Error al cargar el producto")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -32,17 +67,16 @@ export default function NewProductPage() {
 
   const handleSubmit = async () => {
     setError("")
-    setLoading(true)
+    setSaving(true)
 
-    // Validación básica
     if (!formData.name || !formData.price) {
       setError("Por favor complete los campos obligatorios (Nombre y Precio)")
-      setLoading(false)
+      setSaving(false)
       return
     }
 
     try {
-      const response = await api.createProduct({
+      const response = await api.updateProduct(Number.parseInt(productId), {
         name: formData.name,
         description: formData.description,
         code: formData.code,
@@ -57,17 +91,28 @@ export default function NewProductPage() {
         return
       }
 
-      // Redirigir al catálogo después de crear el producto
       router.push("/catalog")
     } catch (err) {
-      setError("Error al crear el producto. Por favor intente nuevamente.")
+      setError("Error al actualizar el producto")
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
   const handleExit = () => {
     router.push("/catalog")
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-100">
+        <Header currentPage="catálogo de productos" />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 animate-spin text-green-600" />
+        </main>
+        <Footer />
+      </div>
+    )
   }
 
   return (
@@ -76,12 +121,11 @@ export default function NewProductPage() {
 
       <main className="flex-1 p-8 flex items-center justify-center">
         <div className="bg-green-600 rounded-3xl p-8 w-full max-w-4xl">
-          <h1 className="text-white text-3xl font-bold text-center mb-8">PRODUCTO NUEVO</h1>
+          <h1 className="text-white text-3xl font-bold text-center mb-8">EDITAR PRODUCTO</h1>
 
           {error && <div className="bg-red-500 text-white p-3 rounded-lg mb-4 text-center">{error}</div>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left Column - Image Upload */}
             <div className="space-y-6">
               <div>
                 <label className="text-white text-xl font-bold block mb-4">NOMBRE *</label>
@@ -90,7 +134,7 @@ export default function NewProductPage() {
                   onChange={(e) => handleInputChange("name", e.target.value)}
                   className="w-full h-12 rounded-full px-6 text-lg"
                   placeholder="Nombre del producto"
-                  disabled={loading}
+                  disabled={saving}
                 />
               </div>
 
@@ -105,7 +149,7 @@ export default function NewProductPage() {
                     onChange={(e) => handleInputChange("image", e.target.value)}
                     className="flex-1 h-12 rounded-full px-6 text-lg"
                     placeholder="URL de la imagen"
-                    disabled={loading}
+                    disabled={saving}
                   />
                 </div>
               </div>
@@ -117,12 +161,11 @@ export default function NewProductPage() {
                   onChange={(e) => handleInputChange("description", e.target.value)}
                   className="w-full h-12 rounded-full px-6 text-lg"
                   placeholder="Descripción del producto"
-                  disabled={loading}
+                  disabled={saving}
                 />
               </div>
             </div>
 
-            {/* Right Column - Form Fields */}
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -132,7 +175,7 @@ export default function NewProductPage() {
                     onChange={(e) => handleInputChange("code", e.target.value)}
                     className="w-full h-12 rounded-full px-6 text-lg"
                     placeholder="Código"
-                    disabled={loading}
+                    disabled={saving}
                   />
                 </div>
                 <div>
@@ -146,7 +189,7 @@ export default function NewProductPage() {
                       placeholder="0.00"
                       type="number"
                       step="0.01"
-                      disabled={loading}
+                      disabled={saving}
                     />
                   </div>
                 </div>
@@ -162,7 +205,7 @@ export default function NewProductPage() {
                     placeholder="Precio de venta"
                     type="number"
                     step="0.01"
-                    disabled={loading}
+                    disabled={saving}
                   />
                 </div>
                 <div>
@@ -173,29 +216,28 @@ export default function NewProductPage() {
                     className="w-full h-12 rounded-full px-6 text-lg"
                     placeholder="Stock ideal"
                     type="number"
-                    disabled={loading}
+                    disabled={saving}
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex justify-center gap-8 mt-12">
             <Button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={saving}
               className="bg-green-800 hover:bg-green-900 text-white px-12 py-4 text-xl font-bold rounded-lg disabled:opacity-50"
             >
-              {loading ? "GUARDANDO..." : "INGRESAR"}
+              {saving ? "GUARDANDO..." : "ACTUALIZAR"}
             </Button>
             <Button
               onClick={handleExit}
-              disabled={loading}
+              disabled={saving}
               variant="outline"
               className="bg-green-800 hover:bg-green-900 text-white border-green-800 px-12 py-4 text-xl font-bold rounded-lg"
             >
-              SALIR
+              CANCELAR
             </Button>
           </div>
         </div>

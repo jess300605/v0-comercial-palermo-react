@@ -1,17 +1,22 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
 import { User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { api } from "@/lib/api"
 
 export default function LoginPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
-    username: "",
+    email: "",
     password: "",
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -20,9 +25,28 @@ export default function LoginPage() {
     }))
   }
 
-  const handleLogin = () => {
-    console.log("Intentando login:", formData)
-    // Aquí iría la lógica de autenticación
+  const handleLogin = async () => {
+    setError("")
+    setLoading(true)
+
+    try {
+      const response = await api.login(formData.email, formData.password)
+
+      if (response.error) {
+        setError(response.error)
+        return
+      }
+
+      if (response.data?.token) {
+        localStorage.setItem("auth_token", response.data.token)
+        localStorage.setItem("user", JSON.stringify(response.data.user))
+        router.push("/catalog")
+      }
+    } catch (err) {
+      setError("Error al iniciar sesión. Por favor intente nuevamente.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -41,15 +65,19 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {error && <div className="bg-red-500 text-white p-3 rounded-lg mb-4 text-center">{error}</div>}
+
             {/* Form Fields */}
             <div className="space-y-6">
               <div>
-                <label className="text-white text-lg font-semibold block mb-3 text-center">Usuario</label>
+                <label className="text-white text-lg font-semibold block mb-3 text-center">Email</label>
                 <Input
-                  value={formData.username}
-                  onChange={(e) => handleInputChange("username", e.target.value)}
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
                   className="w-full h-12 rounded-full px-6 text-lg text-center border-0 shadow-inner"
-                  placeholder="Ingrese su usuario"
+                  placeholder="correo@ejemplo.com"
+                  disabled={loading}
                 />
               </div>
 
@@ -61,6 +89,8 @@ export default function LoginPage() {
                   onChange={(e) => handleInputChange("password", e.target.value)}
                   className="w-full h-12 rounded-full px-6 text-lg text-center border-0 shadow-inner"
                   placeholder="Ingrese su contraseña"
+                  disabled={loading}
+                  onKeyPress={(e) => e.key === "Enter" && handleLogin()}
                 />
               </div>
             </div>
@@ -69,9 +99,10 @@ export default function LoginPage() {
             <div className="flex justify-center mt-10">
               <Button
                 onClick={handleLogin}
-                className="bg-green-900 hover:bg-green-950 text-white px-12 py-3 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
+                disabled={loading}
+                className="bg-green-900 hover:bg-green-950 text-white px-12 py-3 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
               >
-                Ingresar
+                {loading ? "Ingresando..." : "Ingresar"}
               </Button>
             </div>
           </div>
